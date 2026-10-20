@@ -1,409 +1,196 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Artigo didático sobre normalização de bancos de dados, da 1FN à 5FN, com exemplos e SQL para PostgreSQL.">
-  <title>Normalização de Banco de Dados — do caos à estrutura</title>
-  <style>
-    :root {
-      color-scheme: light;
-      --bg: #f4f7fb;
-      --surface: #ffffff;
-      --text: #182230;
-      --muted: #526174;
-      --primary: #2357a6;
-      --primary-soft: #eaf1ff;
-      --border: #d7e0eb;
-      --code: #111827;
-      --code-text: #e5edf7;
-      --note: #fff7df;
-      --note-border: #e7c45c;
-      --good: #e8f7ee;
-    }
-    * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; scroll-padding-top: 1.25rem; }
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.7;
-    }
-    a { color: var(--primary); }
-    a:focus-visible, button:focus-visible {
-      outline: 3px solid #f0b429;
-      outline-offset: 3px;
-    }
-    .hero {
-      padding: 3.5rem 1.25rem;
-      color: white;
-      background: linear-gradient(135deg, #142744, #2357a6);
-    }
-    .hero-inner, main, footer { max-width: 1000px; margin: 0 auto; }
-    .eyebrow { font-size: .85rem; text-transform: uppercase; letter-spacing: .12em; opacity: .85; }
-    h1 { font-size: clamp(2rem, 5vw, 3.3rem); line-height: 1.12; margin: .5rem 0 1rem; }
-    .hero p { max-width: 760px; font-size: 1.08rem; }
-    main { padding: 1.5rem 1rem 4rem; }
-    section, .toc {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: clamp(1.1rem, 3vw, 2rem);
-      margin: 1.25rem 0;
-      box-shadow: 0 5px 20px rgba(20, 39, 68, .04);
-    }
-    h2 { font-size: clamp(1.45rem, 3vw, 2rem); line-height: 1.25; margin-top: 0; }
-    h3 { font-size: 1.2rem; margin-top: 1.8rem; }
-    h4 { margin-bottom: .4rem; }
-    p, li { max-width: 82ch; }
-    .toc ol { padding-left: 1.5rem; margin-bottom: 0; }
-    .toc li { margin: .35rem 0; }
-    .callout {
-      background: var(--note);
-      border-left: 4px solid var(--note-border);
-      border-radius: 8px;
-      padding: .9rem 1rem;
-      margin: 1rem 0;
-    }
-    .good { background: var(--good); border-left-color: #32945b; }
-    .table-wrap { overflow-x: auto; margin: 1rem 0; }
-    table { width: 100%; border-collapse: collapse; min-width: 500px; }
-    caption { text-align: left; font-weight: 700; margin-bottom: .5rem; }
-    th, td { border: 1px solid var(--border); padding: .7rem .8rem; text-align: left; }
-    th { background: var(--primary-soft); }
-    code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
-    p code, li code, td code { background: #edf1f7; padding: .12rem .3rem; border-radius: 4px; }
-    pre {
-      overflow-x: auto;
-      background: var(--code);
-      color: var(--code-text);
-      padding: 1rem;
-      border-radius: 10px;
-      line-height: 1.55;
-      font-size: .9rem;
-      tab-size: 4;
-    }
-    pre code { white-space: pre; }
-    .diagram {
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1rem;
-      background: #fbfdff;
-      margin: 1rem 0;
-    }
-    .entity {
-      border: 2px solid #91a8c8;
-      border-radius: 9px;
-      padding: .8rem;
-      margin: .5rem auto;
-      max-width: 620px;
-      background: white;
-    }
-    .entity strong { display: block; color: #163e78; }
-    .relationship { text-align: center; color: var(--muted); font-weight: 700; margin: .3rem; }
-    .small { font-size: .92rem; color: var(--muted); }
-    footer { padding: 0 1rem 2rem; color: var(--muted); }
-    @media (prefers-reduced-motion: reduce) {
-      html { scroll-behavior: auto; }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Desvendando a Normalização: Como Organizar Dados sem Dor de Cabeça</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="hero">
-    <div class="hero-inner">
-      <div class="eyebrow">Banco de Dados · Projeto acadêmico</div>
-      <h1>Normalização de Banco de Dados</h1>
-      <p>Do caos de uma planilha de vendas a um modelo relacional consistente: entenda as formas normais, veja um exemplo prático e execute o SQL no PostgreSQL.</p>
-    </div>
-  </header>
 
-  <main>
-    <nav class="toc" aria-labelledby="toc-title">
-      <h2 id="toc-title">Navegação do artigo</h2>
-      <ol>
-        <li><a href="#problema">O problema real: o caos na planilha de vendas</a></li>
-        <li><a href="#1fn">Primeira Forma Normal (1FN): valores atômicos</a></li>
-        <li><a href="#2fn">Segunda Forma Normal (2FN): dependência total</a></li>
-        <li><a href="#3fn">Terceira Forma Normal (3FN): dependências transitivas</a></li>
-        <li><a href="#avancadas">Formas avançadas: BCNF, 4FN e 5FN</a></li>
-        <li><a href="#modelo">Modelo relacional proposto</a></li>
-        <li><a href="#sql">Código SQL prático (PostgreSQL)</a></li>
-        <li><a href="#testes">Testes e consultas de validação</a></li>
-        <li><a href="#erros">Erros comuns e limitações</a></li>
-        <li><a href="#acessibilidade">Acessibilidade e apresentação</a></li>
-        <li><a href="#referencias">Autores e referências</a></li>
-      </ol>
-    </nav>
+    <header>
+        <h1>Desvendando a Normalização: Como Organizar Dados sem Dor de Cabeça</h1>
+        <p>De uma planilha caótica cheia de repetições até a Quinta Forma Normal (3FN)</p>
+    </header>
 
-    <section id="problema">
-      <h2>1. O problema real: o caos na planilha de vendas</h2>
-      <p>Imagine uma empresa que guarda informações de pedidos, clientes e produtos em uma única tabela exportada de uma planilha. À primeira vista, consultar tudo em um só lugar parece prático. Porém, dados repetidos aumentam o risco de inconsistência e dificultam a manutenção.</p>
-      <p>Se Carlos Silva fizer várias compras, seu nome e telefone poderão aparecer repetidamente. Se o telefone mudar e apenas algumas linhas forem atualizadas, o banco passará a apresentar informações contraditórias. Problemas desse tipo são conhecidos como <strong>anomalias de atualização, inserção e exclusão</strong>.</p>
-      <div class="table-wrap">
-        <table>
-          <caption>Exemplo simplificado de tabela de vendas ainda não bem estruturada</caption>
-          <thead><tr><th>id_pedido</th><th>cliente</th><th>telefone_cliente</th><th>produto</th><th>valor_unitario</th><th>qtd</th></tr></thead>
-          <tbody>
-            <tr><td>1</td><td>Carlos Silva</td><td>(11) 98888-1111</td><td>Borracha</td><td>R$ 6,00</td><td>2</td></tr>
-            <tr><td>1</td><td>Carlos Silva</td><td>(11) 98888-1111</td><td>Caneta</td><td>R$ 3,00</td><td>3</td></tr>
-            <tr><td>2</td><td>Ana Souza</td><td>(11) 97777-2222</td><td>Caderno</td><td>R$ 15,00</td><td>1</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <p>O exemplo é ilustrativo: como um pedido pode conter vários produtos, o mesmo <code>id_pedido</code> aparece em mais de uma linha. Para representar corretamente esse cenário, precisamos distinguir o pedido de seus itens.</p>
-      <ul>
-        <li><strong>Anomalia de atualização:</strong> um dado repetido é alterado em algumas linhas, mas não em todas.</li>
-        <li><strong>Anomalia de inserção:</strong> não é possível cadastrar um produto sem criar dados de uma venda que ainda não existe.</li>
-        <li><strong>Anomalia de exclusão:</strong> apagar a última venda de um produto pode remover, sem intenção, a única informação existente sobre ele.</li>
-      </ul>
-      <p>A normalização organiza os dados e suas dependências para reduzir essas anomalias, preservando as informações durante a decomposição das relações.</p>
-    </section>
+    <div class="container">
+        
+        <nav class="toc">
+            <h2>Navegação do Artigo</h2>
+            <ul>
+                <li><a href="#problema">1. O Problema Real: O Caos na Planilha de Vendas</a></li>
+                <li><a href="#1fn">2. Primeira Forma Normal (1FN): Valores Atômicos</a></li>
+                <li><a href="#2fn">3. Segunda Forma Normal (2FN): Dependência Total</a></li>
+                <li><a href="#3fn">4. Terceira Forma Normal (3FN): Adeus às Dependências Transitivas</a></li>
+                <li><a href="#avancadas">5. Formas Avançadas de Normalização</a></li>
+                <li><a href="#sql">6. Código SQL Prático (PostgreSQL)</a></li>
+                <li><a href="#erros">7. Erros Comuns e Limitações</a></li>
+                <li><a href="#autores">8. Autores e Referências</a></li>
+            </ul>
+        </nav>
 
-    <section id="1fn">
-      <h2>2. Primeira Forma Normal (1FN): valores atômicos</h2>
-      <p>A primeira forma normal exige que cada atributo contenha um único valor do domínio definido para aquela coluna e que não existam grupos repetitivos representados dentro de uma mesma célula. A atomicidade é entendida no contexto do modelo: um telefone pode ser um único valor para contato, mesmo que seus caracteres possam ser separados.</p>
-      <h3>Exemplo de violação</h3>
-      <div class="table-wrap">
-        <table>
-          <caption>Antes: dois telefones guardados na mesma célula</caption>
-          <thead><tr><th>id_cliente</th><th>nome</th><th>telefones</th></tr></thead>
-          <tbody><tr><td>1</td><td>Carlos Silva</td><td>(11) 98888-1111 / (11) 99999-2222</td></tr></tbody>
-        </table>
-      </div>
-      <p>Se o sistema precisa armazenar vários telefones por cliente, uma alternativa é criar uma tabela separada:</p>
-      <div class="table-wrap">
-        <table>
-          <caption>Depois: um telefone por registro</caption>
-          <thead><tr><th>id_cliente</th><th>telefone</th></tr></thead>
-          <tbody>
-            <tr><td>1</td><td>(11) 98888-1111</td></tr>
-            <tr><td>1</td><td>(11) 99999-2222</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <p class="small">A tabela de telefones normalmente teria uma chave própria ou uma chave composta, como (id_cliente, telefone), além de uma chave estrangeira para clientes.</p>
-      <div class="callout"><strong>Importante:</strong> a 1FN não exige que toda tabela tenha uma chave primária simples. Ela trata da estrutura dos valores e dos grupos repetitivos; as chaves são analisadas na modelagem relacional.</div>
-    </section>
+        <main>
+            <article>
+                
+                <section id="problema">
+                    <h2>1. O Problema Real: O Caos na Planilha de Vendas</h2>
+                    <p>Imagine que você acabou de entrar numa empresa e o sistema deles guarda todas as informações de pedidos, clientes e produtos numa única tabela gigante gerada direto de um arquivo Excel exportado. À primeira vista, parece prático: você olha para uma única tela e vê tudo.</p>
+                    <p>Porém, o caos começa quando o cliente <strong>Carlos Silva</strong> muda de telefone ou quando o produto <em>Borracha</em> sofre alteração de preço. Se o Carlos comprou 10 vezes, teremos o endereço e o telefone dele repetidos em 10 linhas diferentes. Se ele mudar de número e esquecermos de atualizar em uma das linhas, teremos dados inconsistentes. Isso gera o que chamamos de <strong>anomalias de atualização, inserção e exclusão</strong>.</p>
+                    
+                    <div class="table-container">
+                        <table>
+                            <caption>Tabela Não Normalizada (O "Monstro" de uma tabela única)</caption>
+                            <thead>
+                                <tr>
+                                    <th>id_pedido</th>
+                                    <th>cliente</th>
+                                    <th>telefone_cliente</th>
+                                    <th>produto</th>
+                                    <th>valor_unitario</th>
+                                    <th>qtd</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>1</td>
+                                    <td>Carlos Silva</td>
+                                    <td>(11) 98888-1111</td>
+                                    <td>Borracha</td>
+                                    <td>R$ 6,00</td>
+                                    <td>2</td>
+                                </tr>
+                                <tr>
+                                    <td>2</td>
+                                    <td>Carlos Silva</td>
+                                    <td>(11) 98888-1111</td>
+                                    <td>Caneta</td>
+                                    <td>R$ 3,00</td>
+                                    <td>3</td>
+                                </tr>
+                                <tr>
+                                    <td>3</td>
+                                    <td>Ana Souza</td>
+                                    <td>(11) 97777-2222</td>
+                                    <td>Caderno</td>
+                                    <td>R$ 15,00</td>
+                                    <td>1</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
 
-    <section id="2fn">
-      <h2>3. Segunda Forma Normal (2FN): dependência total</h2>
-      <p>Uma relação está na 2FN quando já está na 1FN e nenhum atributo não primo depende funcionalmente de apenas parte de uma chave candidata composta. Em termos introdutórios, os atributos não-chave devem depender da chave inteira, e não de apenas um de seus componentes.</p>
-      <h3>Exemplo com chave composta</h3>
-      <div class="table-wrap">
-        <table>
-          <caption>Tabela intermediária de itens</caption>
-          <thead><tr><th>id_pedido</th><th>id_produto</th><th>nome_produto</th><th>quantidade</th></tr></thead>
-          <tbody>
-            <tr><td>1</td><td>10</td><td>Borracha</td><td>2</td></tr>
-            <tr><td>1</td><td>20</td><td>Caneta</td><td>3</td></tr>
-            <tr><td>2</td><td>10</td><td>Borracha</td><td>1</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <p>Supondo que a chave candidata seja <code>(id_pedido, id_produto)</code>:</p>
-      <ul>
-        <li><code>(id_pedido, id_produto) → quantidade</code>: a quantidade depende do produto dentro daquele pedido.</li>
-        <li><code>id_produto → nome_produto</code>: o nome depende apenas do produto, não do pedido inteiro.</li>
-      </ul>
-      <p>Logo, <code>nome_produto</code> apresenta uma dependência parcial. Para corrigir isso, os dados de produtos ficam em uma tabela própria e os itens do pedido guardam a relação entre pedido e produto.</p>
-      <div class="callout good"><strong>Observação sobre preços:</strong> o preço atual cadastrado pertence a produtos. Já o preço efetivamente cobrado pode mudar de uma venda para outra; por isso, o preço praticado deve ser registrado no item do pedido para preservar o histórico.</div>
-    </section>
+                <section id="1fn">
+                    <h2>2. Primeira Forma Normal (1FN): Valores Atômicos</h2>
+                    <p>A primeira missão para arrumar a casa é aplicar a <strong>1FN</strong>. A regra de ouro aqui é simples: <em>cada coluna deve conter apenas um único valor indivisível (atômico)</em> e não podemos ter grupos repetitivos na mesma linha.</p>
+                    <p>Se tivéssemos múltiplos telefones na mesma célula (ex: <code>(11) 9888-1111 / (11) 9999-2222</code>), precisaríamos isolá-los. No nosso exemplo, garantimos que cada célula contenha apenas um dado elementar.</p>
 
-    <section id="3fn">
-      <h2>4. Terceira Forma Normal (3FN): dependências transitivas</h2>
-      <p>Uma relação está na 3FN quando está na 2FN e, para toda dependência funcional não trivial <code>X → A</code>, pelo menos uma destas condições vale: <code>X</code> é uma superchave ou <code>A</code> é um atributo primo (pertence a alguma chave candidata). Em uma explicação introdutória, isso ajuda a evitar que atributos comuns dependam de outros atributos comuns de maneira inadequada.</p>
-      <h3>Exemplo com CEP e cidade</h3>
-      <div class="table-wrap">
-        <table>
-          <caption>Tabela inicial</caption>
-          <thead><tr><th>id_cliente</th><th>nome_cliente</th><th>cep</th><th>cidade</th></tr></thead>
-          <tbody>
-            <tr><td>1</td><td>Carlos Silva</td><td>01001-000</td><td>São Paulo</td></tr>
-            <tr><td>2</td><td>Ana Souza</td><td>01001-000</td><td>São Paulo</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <p>Se as regras do domínio garantirem que cada CEP determina uma única cidade, teremos <code>id_cliente → cep</code> e <code>cep → cidade</code>. Assim, a cidade depende transitivamente do identificador do cliente.</p>
-      <p>Uma decomposição possível é manter os dados de localização em uma tabela separada e referenciá-la pelos clientes. Essa regra precisa refletir o domínio real: não se deve presumir sem análise que CEP sempre identifica uma única cidade em qualquer sistema.</p>
-      <div class="callout"><strong>Regra de análise:</strong> não basta encontrar duas colunas relacionadas para concluir que há violação da 3FN. É preciso conhecer as dependências funcionais e as chaves candidatas do modelo.</div>
-    </section>
+                    <div class="deep-dive">
+                        <h4>Aprofundamento Teórico: Domínios e Atipicidade</h4>
+                        <p>Formalmente, a 1FN exige que os domínios de todos os atributos sejam atômicos, o que significa que valores compostos ou multivalorados não são permitidos nas relações relacionais puras de Codd.</p>
+                    </div>
+                </section>
 
-    <section id="avancadas">
-      <h2>5. Formas avançadas: BCNF, 4FN e 5FN</h2>
-      <h3>Forma Normal de Boyce-Codd (BCNF)</h3>
-      <p>A BCNF é mais restritiva que a 3FN. Para toda dependência funcional não trivial <code>X → Y</code>, o determinante <code>X</code> deve ser uma superchave. Ela resolve certos casos em que a 3FN ainda permite redundâncias relacionadas a chaves candidatas sobrepostas.</p>
-      <h3>Quarta Forma Normal (4FN)</h3>
-      <p>A 4FN trata de dependências multivaloradas não triviais. Imagine um curso com vários livros recomendados e vários professores disponíveis, sem que cada livro esteja associado a um professor específico. Guardar as duas listas independentes na mesma relação pode gerar combinações repetidas. Separar as relações de livros e de professores pode eliminar essa redundância.</p>
-      <h3>Quinta Forma Normal (5FN)</h3>
-      <p>A 5FN, também chamada de forma normal de projeção-junção, trata de dependências de junção não implicadas pelas chaves candidatas. Ela é relevante em decomposições mais complexas, nas quais uma relação pode ser reconstruída a partir de projeções menores sem perda de informação e sem criar combinações indevidas.</p>
-      <p class="small">Para um projeto introdutório, é adequado apresentar estas formas como visão geral e aprofundá-las com exemplos e referências se fizerem parte dos objetivos avaliados.</p>
-    </section>
+                <section id="2fn">
+                    <h2>3. Segunda Forma Normal (2FN): Dependência Total</h2>
+                    <p>Para alcançar a <strong>2FN</strong>, a tabela precisa estar na 1FN, e todos os atributos que não são chave devem depender inteiramente da chave primária inteira.</p>
+                    <p>Olhando para a nossa tabela original, o <code>valor_unitario</code> e o nome do <code>produto</code> dependem exclusivamente do produto em si, e não do pedido. Se guardarmos o valor do produto na tabela de pedidos, teremos redundância desnecessária. Vamos separar em duas tabelas: <code>produtos</code> e <code>pedidos</code>.</p>
 
-    <section id="modelo">
-      <h2>6. Modelo relacional proposto</h2>
-      <p>Para o cenário de vendas, o modelo abaixo separa clientes, pedidos, produtos e os itens de cada pedido.</p>
-      <div class="diagram" role="img" aria-label="Diagrama textual: clientes se relaciona um para muitos com pedidos; pedidos se relaciona um para muitos com itens_pedido; produtos se relaciona um para muitos com itens_pedido.">
-        <div class="entity"><strong>CLIENTES</strong>PK id · nome · telefone</div>
-        <div class="relationship">1 cliente ─── N pedidos</div>
-        <div class="entity"><strong>PEDIDOS</strong>PK id · FK cliente_id · data_pedido</div>
-        <div class="relationship">1 pedido ─── N itens_pedido</div>
-        <div class="entity"><strong>ITENS_PEDIDO</strong>PK (pedido_id, produto_id) · FK pedido_id · FK produto_id · quantidade · preco_unitario_venda</div>
-        <div class="relationship">N itens_pedido ─── 1 produto</div>
-        <div class="entity"><strong>PRODUTOS</strong>PK id · nome_produto · valor_unitario_atual</div>
-      </div>
-      <ul>
-        <li><strong>CLIENTES → PEDIDOS:</strong> um cliente pode realizar vários pedidos; cada pedido pertence a um cliente.</li>
-        <li><strong>PEDIDOS → ITENS_PEDIDO:</strong> um pedido pode conter vários itens.</li>
-        <li><strong>PRODUTOS → ITENS_PEDIDO:</strong> um produto pode aparecer em vários itens de pedidos.</li>
-      </ul>
-      <p>A chave composta <code>(pedido_id, produto_id)</code> pressupõe que um produto aparece no máximo uma vez em cada pedido. Se o sistema precisar permitir várias linhas do mesmo produto no mesmo pedido, adicione um atributo como <code>numero_item</code> e use <code>(pedido_id, numero_item)</code> como chave primária.</p>
-    </section>
+                    <div class="table-container">
+                        <table>
+                            <caption>Tabela Separada: Produtos</caption>
+                            <thead>
+                                <tr>
+                                    <th>id_produto</th>
+                                    <th>nome_produto</th>
+                                    <th>valor_unitario</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>10</td>
+                                    <td>Borracha</td>
+                                    <td>6,00</td>
+                                </tr>
+                                <tr>
+                                    <td>20</td>
+                                    <td>Caneta</td>
+                                    <td>3,00</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
 
-    <section id="sql">
-      <h2>7. Código SQL prático (PostgreSQL)</h2>
-      <p>O script abaixo cria um modelo normalizado com restrições de integridade e um conjunto mínimo de dados demonstrativos. Pode ser executado em um banco de testes no PostgreSQL 15 ou em versões compatíveis com os comandos utilizados.</p>
-      <pre><code>-- Para repetir o exemplo em um banco de testes, remova primeiro
--- as tabelas na ordem inversa das dependências.
-DROP TABLE IF EXISTS itens_pedido;
-DROP TABLE IF EXISTS pedidos;
-DROP TABLE IF EXISTS produtos;
-DROP TABLE IF EXISTS clientes;
+                <section id="3fn">
+                    <h2>4. Terceira Forma Normal (3FN): Adeus às Dependências Transitivas</h2>
+                    <p>Chegamos ao ponto crítico do nosso artigo. A <strong>3FN</strong> exige que a tabela esteja na 2FN e que <em>nenhuma coluna não-chave dependa de outra coluna não-chave</em> (dependência transitiva).</p>
+                    <p>Por exemplo, se tivéssemos uma tabela de clientes onde guardamos o CEP e a cidade, a cidade depende do CEP, e não diretamente do ID do cliente. Na 3FN, removemos essas dependências indiretas criando tabelas específicas.</p>
+                </section>
 
--- 1. Clientes
+                <section id="avancadas">
+                    <h2>5. Formas Normais Avançadas: BCNF, 4FN e 5FN</h2>
+                    <p>Mesmo após atingir a 3FN, alguns cenários complexos ainda podem apresentar redundâncias ocultas. É aqui que entram os níveis avançados de normalização:</p>
+                    
+                    <h3>Forma Normal de Boyce-Codd (BCNF)</h3>
+                    <p>A BCNF é uma versão mais restrita e rigorosa da 3FN. Ela resolve casos raros onde uma tabela possui múltiplas chaves candidatas que se sobrepõem.</p>
+                    
+                    <div class="deep-dive">
+                        <h4>A Regra da BCNF em linguagem simples:</h4>
+                        <p>Em vez da definição matemática complexa de que <em>"para toda dependência funcional (X &rarr; Y), X deve ser uma superchave"</em>, pense na BCNF como a regra do <strong>"chefe absoluto"</strong>: <strong>só pode determinar o valor de outra coluna quem for o identificador único (a chave) daquela tabela</strong>. Se uma coluna comum estiver a mandar noutra, a tabela tem de ser dividida.</p>
+                    </div>
+
+                    <h3>Quarta Forma Normal (4FN): Dependências Multivaloradas</h3>
+                    <p>A 4FN trata de tabelas que possuem <strong>dependências multivaloradas independentes</strong>. Imagine um sistema onde um curso possui vários livros indicados e vários professores disponíveis. Se você colocar tudo numa tabela só sem relação direta entre livro e professor, haverá uma explosão de linhas duplicadas. A 4FN exige que se separem essas informações em tabelas independentes.</p>
+
+                    <h3>Quinta Forma Normal (5FN): Dependência de Junção</h3>
+                    <p>Também conhecida como <em>Forma Normal de Projeção-Junção</em>, a 5FN lida com casos extremos onde uma tabela pode ser decomposta em várias tabelas menores e depois recomposta sem perda de dados, garantindo que não existam restrições de junção cíclica ocultas.</p>
+                </section>
+                <section id="sql">
+                    <h2>6. Código SQL Prático (PostgreSQL)</h2>
+                    <p>Vamos colocar a mão na massa com um script executável em PostgreSQL (versão 15+) que aplica a modelagem normalizada para o nosso cenário:</p>
+                
+                    <pre><code>-- Criação da tabela de Clientes
 CREATE TABLE clientes (
-    id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     nome VARCHAR(100) NOT NULL,
     telefone VARCHAR(20) NOT NULL
 );
 
--- 2. Produtos: o preço aqui representa o preço atual cadastrado.
+-- Criação da tabela de Produtos
 CREATE TABLE produtos (
-    id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     nome_produto VARCHAR(100) NOT NULL,
     valor_unitario NUMERIC(10,2) NOT NULL
-        CHECK (valor_unitario >= 0)
 );
 
--- 3. Pedidos: cada pedido pertence a um cliente.
+-- Criação da tabela de Pedidos (Relacionada com Chaves Estrangeiras - FK)
 CREATE TABLE pedidos (
-    id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-    cliente_id INTEGER NOT NULL,
-    data_pedido DATE NOT NULL DEFAULT CURRENT_DATE,
-    CONSTRAINT fk_pedido_cliente
-        FOREIGN KEY (cliente_id)
-        REFERENCES clientes(id)
-        ON DELETE RESTRICT
+    id SERIAL PRIMARY KEY,
+    cliente_id INT NOT NULL,
+    produto_id INT NOT NULL,
+    quantidade INT NOT NULL,
+    CONSTRAINT fk_cliente FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE CASCADE,
+    CONSTRAINT fk_produto FOREIGN KEY (produto_id) REFERENCES produtos(id) ON DELETE RESTRICT
 );
 
--- 4. Itens: tabela associativa entre pedidos e produtos.
-CREATE TABLE itens_pedido (
-    pedido_id INTEGER NOT NULL,
-    produto_id INTEGER NOT NULL,
-    quantidade INTEGER NOT NULL CHECK (quantidade > 0),
-    preco_unitario_venda NUMERIC(10,2) NOT NULL
-        CHECK (preco_unitario_venda >= 0),
-    PRIMARY KEY (pedido_id, produto_id),
-    CONSTRAINT fk_item_pedido
-        FOREIGN KEY (pedido_id)
-        REFERENCES pedidos(id)
-        ON DELETE CASCADE,
-    CONSTRAINT fk_item_produto
-        FOREIGN KEY (produto_id)
-        REFERENCES produtos(id)
-        ON DELETE RESTRICT
-);
+-- Inserindo dados seguros e normalizados
+INSERT INTO clientes (nome, telefone) VALUES ('Carlos Silva', '(11) 98888-1111');
+INSERT INTO produtos (nome_produto, valor_unitario) VALUES ('Borracha', 6.00);
+INSERT INTO pedidos (cliente_id, produto_id, quantidade) VALUES (1, 1, 2);
+</code></pre>
+                    
+                </section>
 
--- 5. Dados de exemplo
-INSERT INTO clientes (nome, telefone)
-VALUES
-    ('Carlos Silva', '(11) 98888-1111'),
-    ('Ana Souza', '(11) 97777-2222');
+                <section id="erros">
+                    <h2>7. Erros Comuns e Limitações</h2>
+                    <div class="warning-box">
+                        <h4>Cuidado com o excesso de normalização!</h4>
+                        <p>Muitos iniciantes acham que devem normalizar absolutamente tudo até a última forma normal sem pensar no desempenho. Em sistemas analíticos (OLAP), tabelas excessivamente normalizadas exigem dezenas de <code>JOIN</code>s lentos. A normalização protege a escrita (OLTP), mas deve ser avaliada com cautela em relatórios massivos.</p>
+                    </div>
+                </section>
 
-INSERT INTO produtos (nome_produto, valor_unitario)
-VALUES
-    ('Borracha', 6.00),
-    ('Caneta', 3.00),
-    ('Caderno', 15.00);
-
-INSERT INTO pedidos (cliente_id, data_pedido)
-VALUES
-    (1, DATE '2026-10-01'),
-    (2, DATE '2026-10-02');
-
-INSERT INTO itens_pedido
-    (pedido_id, produto_id, quantidade, preco_unitario_venda)
-VALUES
-    (1, 1, 2, 6.00),
-    (1, 2, 3, 3.00),
-    (2, 3, 1, 15.00);</code></pre>
-      <div class="callout"><strong>Sobre exclusões:</strong> o cliente não pode ser excluído enquanto tiver pedidos referenciando-o (<code>RESTRICT</code>). Excluir um pedido remove seus itens (<code>CASCADE</code>), enquanto um produto usado em itens históricos não pode ser excluído (<code>RESTRICT</code>). Em sistemas reais, considere também cancelamento ou exclusão lógica para preservar o histórico de vendas.</div>
-    </section>
-
-    <section id="testes">
-      <h2>8. Testes e consultas de validação</h2>
-      <h3>8.1. Listar pedidos e seus itens</h3>
-      <pre><code>SELECT
-    pe.id AS pedido_id,
-    c.nome AS cliente,
-    pe.data_pedido,
-    pr.nome_produto,
-    ip.quantidade,
-    ip.preco_unitario_venda,
-    ip.quantidade * ip.preco_unitario_venda AS subtotal
-FROM pedidos AS pe
-JOIN clientes AS c ON c.id = pe.cliente_id
-JOIN itens_pedido AS ip ON ip.pedido_id = pe.id
-JOIN produtos AS pr ON pr.id = ip.produto_id
-ORDER BY pe.id, pr.nome_produto;</code></pre>
-      <p>Resultado esperado em termos gerais: o pedido 1 apresenta Borracha (quantidade 2, subtotal R$ 12,00) e Caneta (quantidade 3, subtotal R$ 9,00); o pedido 2 apresenta Caderno (quantidade 1, subtotal R$ 15,00).</p>
-      <h3>8.2. Calcular o total de cada pedido</h3>
-      <pre><code>SELECT
-    pedido_id,
-    SUM(quantidade * preco_unitario_venda) AS total_pedido
-FROM itens_pedido
-GROUP BY pedido_id
-ORDER BY pedido_id;</code></pre>
-      <p>Com os dados de exemplo, os totais são 21,00 para o pedido 1 e 15,00 para o pedido 2.</p>
-      <h3>8.3. Verificar a restrição de quantidade</h3>
-      <pre><code>-- Este comando deve falhar porque a quantidade não pode ser zero.
-INSERT INTO itens_pedido
-    (pedido_id, produto_id, quantidade, preco_unitario_venda)
-VALUES (1, 3, 0, 15.00);</code></pre>
-      <p>O PostgreSQL deve rejeitar a inserção por violação da restrição <code>CHECK (quantidade &gt; 0)</code>. Execute esse teste separadamente se a ferramenta utilizada interromper a execução do script ao encontrar um erro.</p>
-      <h3>8.4. Conferir chaves estrangeiras</h3>
-      <pre><code>-- Este comando deve falhar se não existir cliente com id 9999.
-INSERT INTO pedidos (cliente_id)
-VALUES (9999);</code></pre>
-      <p>O comando deve ser rejeitado pela chave estrangeira, pois o cliente referenciado não existe.</p>
-    </section>
-
-    <section id="erros">
-      <h2>9. Erros comuns e limitações</h2>
-      <h3>Normalizar sem considerar o contexto</h3>
-      <p>A normalização reduz redundâncias e anomalias, mas a modelagem deve refletir as regras reais do negócio. Em sistemas analíticos, estruturas dimensionais ou desnormalizações controladas podem melhorar consultas específicas. Essas decisões devem ser justificadas e avaliadas por medições, não apenas pela suposição de que mais tabelas sempre tornam o sistema mais lento.</p>
-      <h3>Confundir o preço atual com o preço histórico</h3>
-      <p>Alterar o preço cadastrado de um produto não deve modificar o valor cobrado em uma venda anterior. Por isso, o item do pedido armazena <code>preco_unitario_venda</code>, enquanto produtos mantém o preço atual.</p>
-      <h3>Excluir dados sem avaliar as regras de negócio</h3>
-      <p><code>ON DELETE CASCADE</code> é útil em algumas relações dependentes, mas pode apagar registros importantes. A política de exclusão precisa ser definida considerando auditoria, histórico e requisitos legais ou organizacionais.</p>
-      <h3>Tratar o exemplo como solução universal</h3>
-      <p>O modelo é didático. Sistemas reais podem precisar de endereço de entrega, estoque, pagamentos, descontos, impostos, cancelamentos, múltiplos telefones, histórico de preços e outras regras.</p>
-    </section>
-
-    <section id="acessibilidade">
-      <h2>10. Acessibilidade e apresentação</h2>
-      <ul>
-        <li>Use títulos hierárquicos em ordem lógica e links com texto descritivo.</li>
-        <li>Mantenha contraste suficiente entre texto e fundo.</li>
-        <li>Disponibilize tabelas em contêineres com rolagem horizontal em telas pequenas.</li>
-        <li>Não use somente cores para comunicar erros, relacionamentos ou resultados.</li>
-        <li>Forneça descrição textual para diagramas e prefira código selecionável a imagens de código.</li>
-        <li>Respeite a preferência do sistema por movimento reduzido.</li>
-      </ul>
-      <p>Essas práticas ajudam pessoas que navegam por teclado, leitores de tela ou dispositivos com telas menores.</p>
-    </section>
-
-   <section id="autores" class="authors-section">
+                <section id="autores" class="authors-section">
                     <h2>8. Autores e Informações</h2>
                     <p>Artigo revisado e publicado em: <strong>Outubro de 2026</strong>
                     
@@ -414,7 +201,7 @@ VALUES (9999);</code></pre>
                             <p>Estudante de Ciência da Computação (Universidade Braz Cubas) </p>
                             <div class="author-links">
                                 <a href="https://github.com/Kaneda2602" target="_blank">GitHub</a>
-                                <a href="https://www.linkedin.com/in/heloiza-kaneda-85414342b/" target="_blank">LinkedIn</a>
+                                <a href="http://www.linkedin.com/in/heloiza-kaneda-85414342b" target="_blank">LinkedIn</a>
                             </div>
                         </div>
                     </div>
@@ -462,8 +249,10 @@ VALUES (9999);</code></pre>
         </main>
 
         <footer>
-            <p>Licença MIT &copy; 2026 Heloiza Kaneda, Leonardo Oliveira, Maria Alice e Tatiane Silva. Todos os direitos reservados. As opiniões expressas neste artigo são exclusivas dos autores.</p>
+            <p>Licença MIT &copy; 2026 Heloisa Kaneda, Leonardo Oliveira, Maria Alice e Tatiane Silva. Todos os direitos reservados. As opiniões expressas neste artigo são exclusivas dos autores.</p>
             <p><a href="https://github.com/Kaneda2602/Projeto-Normalizacao.git" target="_blank">Aceder ao Repositório no GitHub</a></p>
         </footer>
+
+    </div>
 </body>
 </html>
